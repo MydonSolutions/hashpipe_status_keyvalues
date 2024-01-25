@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hashpipe_status_keyvalues"
+version = "0.0.1"
+description = "Python Library of supporting code for hashpipe_keyvalues, in particular accessing them from the IPC for a local instance of hashpipe."
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3"
+dependencies = [
+  "rao_keyvalue_property_mixin_classes @ git+https://github.com/MydonSolutions/rao_keyvalue_property_mixin_classes"
+]
