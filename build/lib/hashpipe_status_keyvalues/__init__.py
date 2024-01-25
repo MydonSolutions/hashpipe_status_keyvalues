@@ -111,17 +111,6 @@ def load_shared_hashpipe_lib(lib_so_path):
 
 if (so_path := os.getenv("HASHPIPE_SO_PATH", None)) is not None:
     load_shared_hashpipe_lib(so_path)
-elif (ld_library_path := os.getenv("LD_LIBRARY_PATH", None)) is not None:
-    libfilename = os.getenv("HASHPIPE_SO_FILENAME", "libhashpipe.so")
-    for lib_dirpath in ld_library_path.split(":"):
-        if len(lib_dirpath) == 0:
-            continue
-        
-        path = os.path.join(lib_dirpath, libfilename)
-        if os.path.exists(path):
-            load_shared_hashpipe_lib(path)
-            break
-
 
 if __name__ == "__main__":
     import sys
@@ -130,7 +119,6 @@ if __name__ == "__main__":
     hs = HashpipeStatusSharedMemoryIPC(0)
     buffer = hs.parse_buffer()
 
-    print(libhashpipe._name)
     print(type(buffer))
     print(buffer)
     print(buffer.pulse)
