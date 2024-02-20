@@ -57,6 +57,13 @@ class HashpipeStatusSharedMemoryIPC(ctypes.Structure):
         if rv != 0:
             raise RuntimeError(f"Failed to connect to status buffer of instance {instance_id}")
 
+    def __del__(self):
+        if libhashpipe is None:
+            return
+        rv = libhashpipe.hashpipe_status_detach(ctypes.byref(self))
+        if rv != 0:
+            raise RuntimeError(f"Failed to detach from status buffer of instance {self.instance_id}")
+
     @staticmethod
     def _decode_value(v: str):
         try:
@@ -105,6 +112,9 @@ def load_shared_hashpipe_lib(lib_so_path):
 
     libhashpipe.hashpipe_status_attach.argtypes = (ctypes.c_int, HashpipeStatusSharedMemoryIPCPointer)
     libhashpipe.hashpipe_status_attach.restypes = ctypes.c_int
+
+    libhashpipe.hashpipe_status_detach.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
+    libhashpipe.hashpipe_status_detach.restypes = ctypes.c_int
 
     libhashpipe.hashpipe_status_lock.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
     libhashpipe.hashpipe_status_unlock.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
