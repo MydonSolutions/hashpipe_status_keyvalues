@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hashpipe_status_keyvalues"
-version = "0.0.3"
+version = "0.0.4"
 description = "Python Library of supporting code for hashpipe_keyvalues, in particular accessing them from the IPC for a local instance of hashpipe."
 readme = "README.md"
 classifiers = [

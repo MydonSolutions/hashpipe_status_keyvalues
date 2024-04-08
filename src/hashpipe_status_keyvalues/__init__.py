@@ -41,6 +41,12 @@ def auto_init_HashpipeStatusBuffer(keyvalues: dict):
     return keyvalues
 
 
+class TimeSpec(ctypes.Structure):
+    _fields_ = [
+        ("tv_sec", ctypes.c_long), # second specification
+        ("tv_nsec", ctypes.c_int), # nano-second specification
+    ]
+
 class HashpipeStatusSharedMemoryIPC(ctypes.Structure):
     _fields_ = [
         ("instance_id", ctypes.c_int), # Instance ID of this status buffer (DO NOT SET/CHANGE!)
@@ -51,11 +57,17 @@ class HashpipeStatusSharedMemoryIPC(ctypes.Structure):
 
     END_RECORD = "END" + " "*77
 
-    def __init__(self, instance_id: int):
+    def __init__(self, instance_id: int, lock_timeout_s=5):
         assert libhashpipe is not None, f"libhashpipe.so has not been loaded, set 'HASHPIPE_SO_PATH' before importing, or call load_shared_hashpipe_lib before instantiating an instance of HashpipeStatus."
         rv = libhashpipe.hashpipe_status_attach(instance_id, ctypes.byref(self))
         if rv != 0:
             raise RuntimeError(f"Failed to connect to status buffer of instance {instance_id}")
+        self.lock_timeout_timespec: TimeSpec = None
+        if lock_timeout_s is not None and lock_timeout_s > 0:
+            self.lock_timeout_timespec = TimeSpec()
+            self.lock_timeout_timespec.tv_sec = int(lock_timeout_s)
+            self.lock_timeout_timespec.tv_nsec = int((lock_timeout_s%1)*1e9)
+
 
     def __del__(self):
         if libhashpipe is None:
@@ -96,12 +108,19 @@ class HashpipeStatusSharedMemoryIPC(ctypes.Structure):
         return auto_init_HashpipeStatusBuffer(keyvalues)
 
     def __enter__(self):
-        libhashpipe.hashpipe_status_lock(ctypes.byref(self))
+        if self.lock_timeout_timespec is None:
+            libhashpipe.hashpipe_status_lock(ctypes.byref(self))
+        else:
+            rv = libhashpipe.hashpipe_status_lock_timeout(ctypes.byref(self), ctypes.byref(self.lock_timeout_timespec))
+            if rv != 0:
+                timeout_s = self.lock_timeout_timespec.tv_sec + self.lock_timeout_timespec.tv_nsec*1e-9
+                raise RuntimeWarning(f"Timeout ({timeout_s} s) reached while locking status buffer.")
 
     def __exit__(self, *args):
         libhashpipe.hashpipe_status_unlock(ctypes.byref(self))
 
 HashpipeStatusSharedMemoryIPCPointer = ctypes.POINTER(HashpipeStatusSharedMemoryIPC)
+TimeSpecPointer = ctypes.POINTER(TimeSpec)
 
 def load_shared_hashpipe_lib(lib_so_path):
     global libhashpipe
@@ -113,10 +132,15 @@ def load_shared_hashpipe_lib(lib_so_path):
     libhashpipe.hashpipe_status_attach.argtypes = (ctypes.c_int, HashpipeStatusSharedMemoryIPCPointer)
     libhashpipe.hashpipe_status_attach.restypes = ctypes.c_int
 
+    libhashpipe.hashpipe_databuf_key.argtypes = (ctypes.c_int, )
+    libhashpipe.hashpipe_databuf_key.restypes = ctypes.c_int
+
     libhashpipe.hashpipe_status_detach.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
     libhashpipe.hashpipe_status_detach.restypes = ctypes.c_int
 
-    libhashpipe.hashpipe_status_lock.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
+    libhashpipe.hashpipe_status_lock.argtypes = (HashpipeStatusSharedMemoryIPCPointer,)
+    libhashpipe.hashpipe_status_lock_timeout.argtypes = (HashpipeStatusSharedMemoryIPCPointer, TimeSpecPointer)
+    libhashpipe.hashpipe_status_lock_timeout.restypes = ctypes.c_int
     libhashpipe.hashpipe_status_unlock.argtypes = (HashpipeStatusSharedMemoryIPCPointer, )
 
 if (so_path := os.getenv("HASHPIPE_SO_PATH", None)) is not None:
